@@ -38,6 +38,13 @@ async function main() {
     console.log(prevOwner);
 }
 
+async function main() {
+    const vaultDelegatePartOne   =  await deployContract("VaultDelegatePartOne", []);
+    const vaultDelegatePartTwo   =  await deployContract("VaultDelegatePartTwo", []);
+    const vaultDelegatePartThree =  await deployContract("VaultDelegatePartThree", []);
+    const vault = await deployContract("Vault", [vaultDelegatePartOne.address, vaultDelegatePartTwo.address, vaultDelegatePartThree.address])
+}
+
 main()
     .then(() => process.exit(0))
     .catch(error => {
