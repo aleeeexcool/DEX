@@ -1,8 +1,10 @@
-require("@nomiclabs/hardhat-etherscan")
 require("hardhat-contract-sizer")
 require('@typechain/hardhat')
 require('@matterlabs/hardhat-zksync-toolbox')
 require("@nomiclabs/hardhat-waffle")
+require('@nomiclabs/hardhat-ethers')
+require("@nomiclabs/hardhat-waffle")
+
 const dotenv = require("dotenv");
 
 dotenv.config();
@@ -75,13 +77,26 @@ module.exports = {
     }
   },
   solidity: {
-    version: "0.6.12",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 10
+    compilers: [ 
+      {
+        version: "0.6.12",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 10
+          }
+        }
+      },
+      {
+        version: "0.8.0",
+        settings: {
+          optimizer: {
+            enabled: false,
+            runs: 10
+          }
+        }
       }
-    }
+    ]
   },
   typechain: {
     outDir: "typechain",
