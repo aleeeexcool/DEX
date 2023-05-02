@@ -2,6 +2,6 @@
 
 pragma solidity 0.6.12;
 
-interface IZkeMigrator {
+interface IWxtMigrator {
     function iouTokens(address _token) external view returns (address);
 }

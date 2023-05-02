@@ -8,7 +8,7 @@ import "./interfaces/IHandlerTarget.sol";
 import "../access/interfaces/IAdmin.sol";
 import "../core/interfaces/IVault.sol";
 import "../core/interfaces/IVaultUtils.sol";
-import "../core/interfaces/IZlpManager.sol";
+import "../core/interfaces/IWlpManager.sol";
 import "../referrals/interfaces/IReferralStorage.sol";
 import "../tokens/interfaces/IYieldToken.sol";
 import "../tokens/interfaces/IBaseToken.sol";
@@ -33,7 +33,7 @@ contract Timelock is ITimelock {
 
     address public tokenManager;
     address public mintReceiver;
-    address public zlpManager;
+    address public wlpManager;
     address public rewardRouter;
     uint256 public maxTokenSupply;
 
@@ -91,7 +91,7 @@ contract Timelock is ITimelock {
         uint256 _buffer,
         address _tokenManager,
         address _mintReceiver,
-        address _zlpManager,
+        address _wlpManager,
         address _rewardRouter,
         uint256 _maxTokenSupply,
         uint256 _marginFeeBasisPoints,
@@ -102,7 +102,7 @@ contract Timelock is ITimelock {
         buffer = _buffer;
         tokenManager = _tokenManager;
         mintReceiver = _mintReceiver;
-        zlpManager = _zlpManager;
+        wlpManager = _wlpManager;
         rewardRouter = _rewardRouter;
         maxTokenSupply = _maxTokenSupply;
 
@@ -123,25 +123,25 @@ contract Timelock is ITimelock {
         isHandler[_handler] = _isActive;
     }
 
-    function initZlpManager() external onlyAdmin {
-        IZlpManager _zlpManager = IZlpManager(zlpManager);
+    function initWlpManager() external onlyAdmin {
+        IWlpManager _wlpManager = IWlpManager(wlpManager);
 
-        IMintable zlp = IMintable(_zlpManager.zlp());
-        zlp.setMinter(zlpManager, true);
+        IMintable wlp = IMintable(_wlpManager.wlp());
+        wlp.setMinter(wlpManager, true);
 
-        IUSDG usdg = IUSDG(_zlpManager.usdg());
-        usdg.addVault(zlpManager);
+        IUSDG usdg = IUSDG(_wlpManager.usdg());
+        usdg.addVault(wlpManager);
 
-        IVault vault = _zlpManager.vault();
-        vault.setManager(zlpManager, true);
+        IVault vault = _wlpManager.vault();
+        vault.setManager(wlpManager, true);
     }
 
     function initRewardRouter() external onlyAdmin {
         IRewardRouterV2 _rewardRouter = IRewardRouterV2(rewardRouter);
 
-        IHandlerTarget(_rewardRouter.feeZlpTracker()).setHandler(rewardRouter, true);
-        IHandlerTarget(_rewardRouter.stakedZlpTracker()).setHandler(rewardRouter, true);
-        IHandlerTarget(zlpManager).setHandler(rewardRouter, true);
+        IHandlerTarget(_rewardRouter.feeWlpTracker()).setHandler(rewardRouter, true);
+        IHandlerTarget(_rewardRouter.stakedWlpTracker()).setHandler(rewardRouter, true);
+        IHandlerTarget(wlpManager).setHandler(rewardRouter, true);
     }
 
     function setKeeper(address _keeper, bool _isActive) external onlyAdmin {
@@ -311,29 +311,29 @@ contract Timelock is ITimelock {
     }
 
     function updateUsdgSupply(uint256 usdgAmount) external onlyKeeperAndAbove {
-        address usdg = IZlpManager(zlpManager).usdg();
-        uint256 balance = IERC20(usdg).balanceOf(zlpManager);
+        address usdg = IWlpManager(wlpManager).usdg();
+        uint256 balance = IERC20(usdg).balanceOf(wlpManager);
 
         IUSDG(usdg).addVault(address(this));
 
         if (usdgAmount > balance) {
             uint256 mintAmount = usdgAmount.sub(balance);
-            IUSDG(usdg).mint(zlpManager, mintAmount);
+            IUSDG(usdg).mint(wlpManager, mintAmount);
         } else {
             uint256 burnAmount = balance.sub(usdgAmount);
-            IUSDG(usdg).burn(zlpManager, burnAmount);
+            IUSDG(usdg).burn(wlpManager, burnAmount);
         }
 
         IUSDG(usdg).removeVault(address(this));
     }
 
     function setShortsTrackerAveragePriceWeight(uint256 _shortsTrackerAveragePriceWeight) external onlyAdmin {
-        IZlpManager(zlpManager).setShortsTrackerAveragePriceWeight(_shortsTrackerAveragePriceWeight);
+        IWlpManager(wlpManager).setShortsTrackerAveragePriceWeight(_shortsTrackerAveragePriceWeight);
     }
 
-    function setZlpCooldownDuration(uint256 _cooldownDuration) external onlyAdmin {
+    function setWlpCooldownDuration(uint256 _cooldownDuration) external onlyAdmin {
         require(_cooldownDuration < 2 hours, "Timelock: invalid _cooldownDuration");
-        IZlpManager(zlpManager).setCooldownDuration(_cooldownDuration);
+        IWlpManager(wlpManager).setCooldownDuration(_cooldownDuration);
     }
 
     function setMaxGlobalShortSize(address _vault, address _token, uint256 _amount) external onlyAdmin {

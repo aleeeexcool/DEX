@@ -3,7 +3,7 @@
 pragma solidity 0.6.12;
 
 import "./interfaces/ITimelockTarget.sol";
-import "./interfaces/IZkeTimelock.sol";
+import "./interfaces/IWxtTimelock.sol";
 import "./interfaces/IHandlerTarget.sol";
 import "../access/interfaces/IAdmin.sol";
 import "../core/interfaces/IVault.sol";
@@ -19,7 +19,7 @@ import "../staking/interfaces/IVester.sol";
 import "../libraries/math/SafeMath.sol";
 import "../libraries/token/IERC20.sol";
 
-contract ZkeTimelock is IZkeTimelock {
+contract WxtTimelock is IWxtTimelock {
     using SafeMath for uint256;
 
     uint256 public constant PRICE_PRECISION = 10 ** 30;
@@ -70,22 +70,22 @@ contract ZkeTimelock is IZkeTimelock {
     event ClearAction(bytes32 action);
 
     modifier onlyAdmin() {
-        require(msg.sender == admin, "ZkeTimelock: forbidden");
+        require(msg.sender == admin, "WxtTimelock: forbidden");
         _;
     }
 
     modifier onlyAdminOrHandler() {
-        require(msg.sender == admin || isHandler[msg.sender], "ZkeTimelock: forbidden");
+        require(msg.sender == admin || isHandler[msg.sender], "WxtTimelock: forbidden");
         _;
     }
 
     modifier onlyTokenManager() {
-        require(msg.sender == tokenManager, "ZkeTimelock: forbidden");
+        require(msg.sender == tokenManager, "WxtTimelock: forbidden");
         _;
     }
 
     modifier onlyRewardManager() {
-        require(msg.sender == rewardManager, "ZkeTimelock: forbidden");
+        require(msg.sender == rewardManager, "WxtTimelock: forbidden");
         _;
     }
 
@@ -98,8 +98,8 @@ contract ZkeTimelock is IZkeTimelock {
         address _mintReceiver,
         uint256 _maxTokenSupply
     ) public {
-        require(_buffer <= MAX_BUFFER, "ZkeTimelock: invalid _buffer");
-        require(_longBuffer <= MAX_BUFFER, "ZkeTimelock: invalid _longBuffer");
+        require(_buffer <= MAX_BUFFER, "WxtTimelock: invalid _buffer");
+        require(_longBuffer <= MAX_BUFFER, "WxtTimelock: invalid _longBuffer");
         admin = _admin;
         buffer = _buffer;
         longBuffer = _longBuffer;
@@ -114,7 +114,7 @@ contract ZkeTimelock is IZkeTimelock {
     }
 
     function setExternalAdmin(address _target, address _admin) external onlyAdmin {
-        require(_target != address(this), "ZkeTimelock: invalid _target");
+        require(_target != address(this), "WxtTimelock: invalid _target");
         IAdmin(_target).setAdmin(_admin);
     }
 
@@ -123,19 +123,19 @@ contract ZkeTimelock is IZkeTimelock {
     }
 
     function setBuffer(uint256 _buffer) external onlyAdmin {
-        require(_buffer <= MAX_BUFFER, "ZkeTimelock: invalid _buffer");
-        require(_buffer > buffer, "ZkeTimelock: buffer cannot be decreased");
+        require(_buffer <= MAX_BUFFER, "WxtTimelock: invalid _buffer");
+        require(_buffer > buffer, "WxtTimelock: buffer cannot be decreased");
         buffer = _buffer;
     }
 
     function setMaxLeverage(address _vault, uint256 _maxLeverage) external onlyAdmin {
-      require(_maxLeverage > MAX_LEVERAGE_VALIDATION, "ZkeTimelock: invalid _maxLeverage");
+      require(_maxLeverage > MAX_LEVERAGE_VALIDATION, "WxtTimelock: invalid _maxLeverage");
       IVault(_vault).setMaxLeverage(_maxLeverage);
     }
 
     function setFundingRate(address _vault, uint256 _fundingInterval, uint256 _fundingRateFactor, uint256 _stableFundingRateFactor) external onlyAdmin {
-        require(_fundingRateFactor < MAX_FUNDING_RATE_FACTOR, "ZkeTimelock: invalid _fundingRateFactor");
-        require(_stableFundingRateFactor < MAX_FUNDING_RATE_FACTOR, "ZkeTimelock: invalid _stableFundingRateFactor");
+        require(_fundingRateFactor < MAX_FUNDING_RATE_FACTOR, "WxtTimelock: invalid _fundingRateFactor");
+        require(_stableFundingRateFactor < MAX_FUNDING_RATE_FACTOR, "WxtTimelock: invalid _stableFundingRateFactor");
         IVault(_vault).setFundingRate(_fundingInterval, _fundingRateFactor, _stableFundingRateFactor);
     }
 
@@ -151,13 +151,13 @@ contract ZkeTimelock is IZkeTimelock {
         uint256 _minProfitTime,
         bool _hasDynamicFees
     ) external onlyAdmin {
-        require(_taxBasisPoints < MAX_FEE_BASIS_POINTS, "ZkeTimelock: invalid _taxBasisPoints");
-        require(_stableTaxBasisPoints < MAX_FEE_BASIS_POINTS, "ZkeTimelock: invalid _stableTaxBasisPoints");
-        require(_mintBurnFeeBasisPoints < MAX_FEE_BASIS_POINTS, "ZkeTimelock: invalid _mintBurnFeeBasisPoints");
-        require(_swapFeeBasisPoints < MAX_FEE_BASIS_POINTS, "ZkeTimelock: invalid _swapFeeBasisPoints");
-        require(_stableSwapFeeBasisPoints < MAX_FEE_BASIS_POINTS, "ZkeTimelock: invalid _stableSwapFeeBasisPoints");
-        require(_marginFeeBasisPoints < MAX_FEE_BASIS_POINTS, "ZkeTimelock: invalid _marginFeeBasisPoints");
-        require(_liquidationFeeUsd < 10 * PRICE_PRECISION, "ZkeTimelock: invalid _liquidationFeeUsd");
+        require(_taxBasisPoints < MAX_FEE_BASIS_POINTS, "WxtTimelock: invalid _taxBasisPoints");
+        require(_stableTaxBasisPoints < MAX_FEE_BASIS_POINTS, "WxtTimelock: invalid _stableTaxBasisPoints");
+        require(_mintBurnFeeBasisPoints < MAX_FEE_BASIS_POINTS, "WxtTimelock: invalid _mintBurnFeeBasisPoints");
+        require(_swapFeeBasisPoints < MAX_FEE_BASIS_POINTS, "WxtTimelock: invalid _swapFeeBasisPoints");
+        require(_stableSwapFeeBasisPoints < MAX_FEE_BASIS_POINTS, "WxtTimelock: invalid _stableSwapFeeBasisPoints");
+        require(_marginFeeBasisPoints < MAX_FEE_BASIS_POINTS, "WxtTimelock: invalid _marginFeeBasisPoints");
+        require(_liquidationFeeUsd < 10 * PRICE_PRECISION, "WxtTimelock: invalid _liquidationFeeUsd");
 
         IVault(_vault).setFees(
             _taxBasisPoints,
@@ -181,10 +181,10 @@ contract ZkeTimelock is IZkeTimelock {
         uint256 _bufferAmount,
         uint256 _usdgAmount
     ) external onlyAdmin {
-        require(_minProfitBps <= 500, "ZkeTimelock: invalid _minProfitBps");
+        require(_minProfitBps <= 500, "WxtTimelock: invalid _minProfitBps");
 
         IVault vault = IVault(_vault);
-        require(vault.whitelistedTokens(_token), "ZkeTimelock: token not yet whitelisted");
+        require(vault.whitelistedTokens(_token), "WxtTimelock: token not yet whitelisted");
 
         uint256 tokenDecimals = vault.tokenDecimals(_token);
         bool isStable = vault.stableTokens(_token);
@@ -286,7 +286,7 @@ contract ZkeTimelock is IZkeTimelock {
     function setInPrivateTransferMode(address _token, bool _inPrivateTransferMode) external onlyAdmin {
         if (excludedTokens[_token]) {
             // excludedTokens can only have their transfers enabled
-            require(_inPrivateTransferMode == false, "ZkeTimelock: invalid _inPrivateTransferMode");
+            require(_inPrivateTransferMode == false, "WxtTimelock: invalid _inPrivateTransferMode");
         }
 
         IBaseToken(_token).setInPrivateTransferMode(_inPrivateTransferMode);
@@ -537,7 +537,7 @@ contract ZkeTimelock is IZkeTimelock {
         }
 
         mintable.mint(_receiver, _amount);
-        require(IERC20(_token).totalSupply() <= maxTokenSupply, "ZkeTimelock: maxTokenSupply exceeded");
+        require(IERC20(_token).totalSupply() <= maxTokenSupply, "WxtTimelock: maxTokenSupply exceeded");
     }
 
     function _setPendingAction(bytes32 _action) private {
@@ -551,12 +551,12 @@ contract ZkeTimelock is IZkeTimelock {
     }
 
     function _validateAction(bytes32 _action) private view {
-        require(pendingActions[_action] != 0, "ZkeTimelock: action not signalled");
-        require(pendingActions[_action] < block.timestamp, "ZkeTimelock: action time not yet passed");
+        require(pendingActions[_action] != 0, "WxtTimelock: action not signalled");
+        require(pendingActions[_action] < block.timestamp, "WxtTimelock: action time not yet passed");
     }
 
     function _clearAction(bytes32 _action) private {
-        require(pendingActions[_action] != 0, "ZkeTimelock: invalid _action");
+        require(pendingActions[_action] != 0, "WxtTimelock: invalid _action");
         delete pendingActions[_action];
         emit ClearAction(_action);
     }

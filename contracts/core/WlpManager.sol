@@ -6,7 +6,7 @@ import "../libraries/token/SafeERC20.sol";
 import "../libraries/utils/ReentrancyGuard.sol";
 
 import "./interfaces/IVault.sol";
-import "./interfaces/IZlpManager.sol";
+import "./interfaces/IWlpManager.sol";
 import "./interfaces/IShortsTracker.sol";
 import "../tokens/interfaces/IUSDG.sol";
 import "../tokens/interfaces/IMintable.sol";
@@ -14,20 +14,20 @@ import "../access/Governable.sol";
 
 pragma solidity 0.6.12;
 
-contract ZlpManager is ReentrancyGuard, Governable, IZlpManager {
+contract WlpManager is ReentrancyGuard, Governable, IWlpManager {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
     uint256 public constant PRICE_PRECISION = 10 ** 30;
     uint256 public constant USDG_DECIMALS = 18;
-    uint256 public constant ZLP_PRECISION = 10 ** 18;
+    uint256 public constant WLP_PRECISION = 10 ** 18;
     uint256 public constant MAX_COOLDOWN_DURATION = 48 hours;
     uint256 public constant BASIS_POINTS_DIVISOR = 10000;
 
     IVault public override vault;
     IShortsTracker public shortsTracker;
     address public override usdg;
-    address public override zlp;
+    address public override wlp;
 
     uint256 public override cooldownDuration;
     mapping (address => uint256) public override lastAddedAt;
@@ -63,7 +63,7 @@ contract ZlpManager is ReentrancyGuard, Governable, IZlpManager {
         gov = msg.sender;
         vault = IVault(_vault);
         usdg = _usdg;
-        zlp = _zlp;
+        wlp = _zlp;
         shortsTracker = IShortsTracker(_shortsTracker);
         cooldownDuration = _cooldownDuration;
     }
@@ -77,7 +77,7 @@ contract ZlpManager is ReentrancyGuard, Governable, IZlpManager {
     }
 
     function setShortsTrackerAveragePriceWeight(uint256 _shortsTrackerAveragePriceWeight) external override onlyGov {
-        require(shortsTrackerAveragePriceWeight <= BASIS_POINTS_DIVISOR, "ZlpManager: invalid weight");
+        require(shortsTrackerAveragePriceWeight <= BASIS_POINTS_DIVISOR, "WlpManager: invalid weight");
         shortsTrackerAveragePriceWeight = _shortsTrackerAveragePriceWeight;
     }
 
@@ -86,7 +86,7 @@ contract ZlpManager is ReentrancyGuard, Governable, IZlpManager {
     }
 
     function setCooldownDuration(uint256 _cooldownDuration) external override onlyGov {
-        require(_cooldownDuration <= MAX_COOLDOWN_DURATION, "ZlpManager: invalid _cooldownDuration");
+        require(_cooldownDuration <= MAX_COOLDOWN_DURATION, "WlpManager: invalid _cooldownDuration");
         cooldownDuration = _cooldownDuration;
     }
 
@@ -95,18 +95,18 @@ contract ZlpManager is ReentrancyGuard, Governable, IZlpManager {
         aumDeduction = _aumDeduction;
     }
 
-    function addLiquidity(address _token, uint256 _amount, uint256 _minUsdg, uint256 _minZlp) external override nonReentrant returns (uint256) {
-        if (inPrivateMode) { revert("ZlpManager: action not enabled"); }
-        return _addLiquidity(msg.sender, msg.sender, _token, _amount, _minUsdg, _minZlp);
+    function addLiquidity(address _token, uint256 _amount, uint256 _minUsdg, uint256 _minWlp) external override nonReentrant returns (uint256) {
+        if (inPrivateMode) { revert("WlpManager: action not enabled"); }
+        return _addLiquidity(msg.sender, msg.sender, _token, _amount, _minUsdg, _minWlp);
     }
 
-    function addLiquidityForAccount(address _fundingAccount, address _account, address _token, uint256 _amount, uint256 _minUsdg, uint256 _minZlp) external override nonReentrant returns (uint256) {
+    function addLiquidityForAccount(address _fundingAccount, address _account, address _token, uint256 _amount, uint256 _minUsdg, uint256 _minWlp) external override nonReentrant returns (uint256) {
         _validateHandler();
-        return _addLiquidity(_fundingAccount, _account, _token, _amount, _minUsdg, _minZlp);
+        return _addLiquidity(_fundingAccount, _account, _token, _amount, _minUsdg, _minWlp);
     }
 
     function removeLiquidity(address _tokenOut, uint256 _zlpAmount, uint256 _minOut, address _receiver) external override nonReentrant returns (uint256) {
-        if (inPrivateMode) { revert("ZlpManager: action not enabled"); }
+        if (inPrivateMode) { revert("WlpManager: action not enabled"); }
         return _removeLiquidity(msg.sender, _tokenOut, _zlpAmount, _minOut, _receiver);
     }
 
@@ -117,8 +117,8 @@ contract ZlpManager is ReentrancyGuard, Governable, IZlpManager {
 
     function getPrice(bool _maximise) external view returns (uint256) {
         uint256 aum = getAum(_maximise);
-        uint256 supply = IERC20(zlp).totalSupply();
-        return aum.mul(ZLP_PRECISION).div(supply);
+        uint256 supply = IERC20(wlp).totalSupply();
+        return aum.mul(WLP_PRECISION).div(supply);
     }
 
     function getAums() public view returns (uint256[] memory) {
@@ -206,21 +206,21 @@ contract ZlpManager is ReentrancyGuard, Governable, IZlpManager {
             .div(BASIS_POINTS_DIVISOR);
     }
 
-    function _addLiquidity(address _fundingAccount, address _account, address _token, uint256 _amount, uint256 _minUsdg, uint256 _minZlp) private returns (uint256) {
-        require(_amount > 0, "ZlpManager: invalid _amount");
+    function _addLiquidity(address _fundingAccount, address _account, address _token, uint256 _amount, uint256 _minUsdg, uint256 _minWlp) private returns (uint256) {
+        require(_amount > 0, "WlpManager: invalid _amount");
 
         // calculate aum before buyUSDG
         uint256 aumInUsdg = getAumInUsdg(true);
-        uint256 zlpSupply = IERC20(zlp).totalSupply();
+        uint256 zlpSupply = IERC20(wlp).totalSupply();
 
         IERC20(_token).safeTransferFrom(_fundingAccount, address(vault), _amount);
         uint256 usdgAmount = vault.buyUSDG(_token, address(this));
-        require(usdgAmount >= _minUsdg, "ZlpManager: insufficient USDG output");
+        require(usdgAmount >= _minUsdg, "WlpManager: insufficient USDG output");
 
         uint256 mintAmount = aumInUsdg == 0 ? usdgAmount : usdgAmount.mul(zlpSupply).div(aumInUsdg);
-        require(mintAmount >= _minZlp, "ZlpManager: insufficient ZLP output");
+        require(mintAmount >= _minWlp, "WlpManager: insufficient wlp output");
 
-        IMintable(zlp).mint(_account, mintAmount);
+        IMintable(wlp).mint(_account, mintAmount);
 
         lastAddedAt[_account] = block.timestamp;
 
@@ -230,12 +230,12 @@ contract ZlpManager is ReentrancyGuard, Governable, IZlpManager {
     }
 
     function _removeLiquidity(address _account, address _tokenOut, uint256 _zlpAmount, uint256 _minOut, address _receiver) private returns (uint256) {
-        require(_zlpAmount > 0, "ZlpManager: invalid _zlpAmount");
-        require(lastAddedAt[_account].add(cooldownDuration) <= block.timestamp, "ZlpManager: cooldown duration not yet passed");
+        require(_zlpAmount > 0, "WlpManager: invalid _zlpAmount");
+        require(lastAddedAt[_account].add(cooldownDuration) <= block.timestamp, "WlpManager: cooldown duration not yet passed");
 
         // calculate aum before sellUSDG
         uint256 aumInUsdg = getAumInUsdg(false);
-        uint256 zlpSupply = IERC20(zlp).totalSupply();
+        uint256 zlpSupply = IERC20(wlp).totalSupply();
 
         uint256 usdgAmount = _zlpAmount.mul(aumInUsdg).div(zlpSupply);
         uint256 usdgBalance = IERC20(usdg).balanceOf(address(this));
@@ -243,11 +243,11 @@ contract ZlpManager is ReentrancyGuard, Governable, IZlpManager {
             IUSDG(usdg).mint(address(this), usdgAmount.sub(usdgBalance));
         }
 
-        IMintable(zlp).burn(_account, _zlpAmount);
+        IMintable(wlp).burn(_account, _zlpAmount);
 
         IERC20(usdg).transfer(address(vault), usdgAmount);
         uint256 amountOut = vault.sellUSDG(_tokenOut, _receiver);
-        require(amountOut >= _minOut, "ZlpManager: insufficient output");
+        require(amountOut >= _minOut, "WlpManager: insufficient output");
 
         emit RemoveLiquidity(_account, _tokenOut, _zlpAmount, aumInUsdg, zlpSupply, usdgAmount, amountOut);
 
@@ -255,6 +255,6 @@ contract ZlpManager is ReentrancyGuard, Governable, IZlpManager {
     }
 
     function _validateHandler() private view {
-        require(isHandler[msg.sender], "ZlpManager: forbidden");
+        require(isHandler[msg.sender], "WlpManager: forbidden");
     }
 }

@@ -7,7 +7,7 @@ import "../libraries/token/IERC20.sol";
 import "../libraries/utils/ReentrancyGuard.sol";
 
 import "./interfaces/IAmmRouter.sol";
-import "./interfaces/IZkeMigrator.sol";
+import "./interfaces/IWxtMigrator.sol";
 import "../core/interfaces/IVault.sol";
 
 contract MigrationHandler is ReentrancyGuard {
@@ -145,9 +145,9 @@ contract MigrationHandler is ReentrancyGuard {
         address _token,
         uint256 _usdgAmount
     ) external onlyAdmin nonReentrant {
-        address iouToken = IZkeMigrator(_migrator).iouTokens(_token);
+        address iouToken = IWxtMigrator(_migrator).iouTokens(_token);
         uint256 iouBalance = IERC20(iouToken).balanceOf(_account);
-        uint256 iouTokenAmount = _usdgAmount.div(2); // each ZKE is priced at $2
+        uint256 iouTokenAmount = _usdgAmount.div(2); // each WXT is priced at $2
 
         uint256 refunded = refundedAmounts[_account][iouToken];
         refundedAmounts[_account][iouToken] = refunded.add(iouTokenAmount);

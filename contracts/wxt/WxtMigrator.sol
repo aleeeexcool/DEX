@@ -6,11 +6,11 @@ import "../libraries/math/SafeMath.sol";
 import "../libraries/token/IERC20.sol";
 import "../libraries/utils/ReentrancyGuard.sol";
 
-import "./interfaces/IZkeIou.sol";
+import "./interfaces/IWxtIou.sol";
 import "./interfaces/IAmmRouter.sol";
-import "./interfaces/IZkeMigrator.sol";
+import "./interfaces/IWxtMigrator.sol";
 
-contract ZkeMigrator is ReentrancyGuard, IZkeMigrator {
+contract WxtMigrator is ReentrancyGuard, IWxtMigrator {
     using SafeMath for uint256;
 
     bool public isInitialized;
@@ -20,7 +20,7 @@ contract ZkeMigrator is ReentrancyGuard, IZkeMigrator {
     uint256 public minAuthorizations;
 
     address public ammRouter;
-    uint256 public zkePrice;
+    uint256 public wlpPrice;
 
     uint256 public actionsNonce;
     address public admin;
@@ -56,18 +56,18 @@ contract ZkeMigrator is ReentrancyGuard, IZkeMigrator {
     }
 
     modifier onlyAdmin() {
-        require(msg.sender == admin, "ZkeMigrator: forbidden");
+        require(msg.sender == admin, "WxtMigrator: forbidden");
         _;
     }
 
     modifier onlySigner() {
-        require(isSigner[msg.sender], "ZkeMigrator: forbidden");
+        require(isSigner[msg.sender], "WxtMigrator: forbidden");
         _;
     }
 
     function initialize(
         address _ammRouter,
-        uint256 _zkePrice,
+        uint256 _wlpPrice,
         address[] memory _signers,
         address[] memory _whitelistedTokens,
         address[] memory _iouTokens,
@@ -77,17 +77,17 @@ contract ZkeMigrator is ReentrancyGuard, IZkeMigrator {
         address[] memory _lpTokenAs,
         address[] memory _lpTokenBs
     ) public onlyAdmin {
-        require(!isInitialized, "ZkeMigrator: already initialized");
-        require(_whitelistedTokens.length == _iouTokens.length, "ZkeMigrator: invalid _iouTokens.length");
-        require(_whitelistedTokens.length == _prices.length, "ZkeMigrator: invalid _prices.length");
-        require(_whitelistedTokens.length == _caps.length, "ZkeMigrator: invalid _caps.length");
-        require(_lpTokens.length == _lpTokenAs.length, "ZkeMigrator: invalid _lpTokenAs.length");
-        require(_lpTokens.length == _lpTokenBs.length, "ZkeMigrator: invalid _lpTokenBs.length");
+        require(!isInitialized, "WxtMigrator: already initialized");
+        require(_whitelistedTokens.length == _iouTokens.length, "WxtMigrator: invalid _iouTokens.length");
+        require(_whitelistedTokens.length == _prices.length, "WxtMigrator: invalid _prices.length");
+        require(_whitelistedTokens.length == _caps.length, "WxtMigrator: invalid _caps.length");
+        require(_lpTokens.length == _lpTokenAs.length, "WxtMigrator: invalid _lpTokenAs.length");
+        require(_lpTokens.length == _lpTokenBs.length, "WxtMigrator: invalid _lpTokenBs.length");
 
         isInitialized = true;
 
         ammRouter = _ammRouter;
-        zkePrice = _zkePrice;
+        wlpPrice = _wlpPrice;
 
         signers = _signers;
         for (uint256 i = 0; i < _signers.length; i++) {
@@ -127,36 +127,36 @@ contract ZkeMigrator is ReentrancyGuard, IZkeMigrator {
         address _token,
         uint256 _tokenAmount
     ) public nonReentrant {
-        require(isMigrationActive, "ZkeMigrator: migration is no longer active");
-        require(whitelistedTokens[_token], "ZkeMigrator: token not whitelisted");
-        require(_tokenAmount > 0, "ZkeMigrator: invalid tokenAmount");
+        require(isMigrationActive, "WxtMigrator: migration is no longer active");
+        require(whitelistedTokens[_token], "WxtMigrator: token not whitelisted");
+        require(_tokenAmount > 0, "WxtMigrator: invalid tokenAmount");
 
         if (hasMaxMigrationLimit) {
             migratedAmounts[msg.sender][_token] = migratedAmounts[msg.sender][_token].add(_tokenAmount);
-            require(migratedAmounts[msg.sender][_token] <= maxMigrationAmounts[msg.sender][_token], "ZkeMigrator: maxMigrationAmount exceeded");
+            require(migratedAmounts[msg.sender][_token] <= maxMigrationAmounts[msg.sender][_token], "WxtMigrator: maxMigrationAmount exceeded");
         }
 
         uint256 tokenPrice = getTokenPrice(_token);
-        uint256 mintAmount = _tokenAmount.mul(tokenPrice).div(zkePrice);
-        require(mintAmount > 0, "ZkeMigrator: invalid mintAmount");
+        uint256 mintAmount = _tokenAmount.mul(tokenPrice).div(wlpPrice);
+        require(mintAmount > 0, "WxtMigrator: invalid mintAmount");
 
         tokenAmounts[_token] = tokenAmounts[_token].add(_tokenAmount);
-        require(tokenAmounts[_token] < caps[_token], "ZkeMigrator: token cap exceeded");
+        require(tokenAmounts[_token] < caps[_token], "WxtMigrator: token cap exceeded");
 
         IERC20(_token).transferFrom(msg.sender, address(this), _tokenAmount);
 
         if (lpTokens[_token]) {
             address tokenA = lpTokenAs[_token];
             address tokenB = lpTokenBs[_token];
-            require(tokenA != address(0), "ZkeMigrator: invalid tokenA");
-            require(tokenB != address(0), "ZkeMigrator: invalid tokenB");
+            require(tokenA != address(0), "WxtMigrator: invalid tokenA");
+            require(tokenB != address(0), "WxtMigrator: invalid tokenB");
 
             IERC20(_token).approve(ammRouter, _tokenAmount);
             IAmmRouter(ammRouter).removeLiquidity(tokenA, tokenB, _tokenAmount, 0, 0, address(this), block.timestamp);
         }
 
         address iouToken = getIouToken(_token);
-        IZkeIou(iouToken).mint(msg.sender, mintAmount);
+        IWxtIou(iouToken).mint(msg.sender, mintAmount);
     }
 
     function signalApprove(address _token, address _spender, uint256 _amount) external nonReentrant onlyAdmin {
@@ -170,7 +170,7 @@ contract ZkeMigrator is ReentrancyGuard, IZkeMigrator {
     function signApprove(address _token, address _spender, uint256 _amount, uint256 _nonce) external nonReentrant onlySigner {
         bytes32 action = keccak256(abi.encodePacked("approve", _token, _spender, _amount, _nonce));
         _validateAction(action);
-        require(!signedActions[msg.sender][action], "ZkeMigrator: already signed");
+        require(!signedActions[msg.sender][action], "WxtMigrator: already signed");
         signedActions[msg.sender][action] = true;
         emit SignAction(action, _nonce);
     }
@@ -197,13 +197,13 @@ contract ZkeMigrator is ReentrancyGuard, IZkeMigrator {
 
     function getTokenPrice(address _token) public view returns (uint256) {
         uint256 price = prices[_token];
-        require(price != 0, "ZkeMigrator: invalid token price");
+        require(price != 0, "WxtMigrator: invalid token price");
         return price;
     }
 
     function getIouToken(address _token) public view returns (address) {
         address iouToken = iouTokens[_token];
-        require(iouToken != address(0), "ZkeMigrator: invalid iou token");
+        require(iouToken != address(0), "WxtMigrator: invalid iou token");
         return iouToken;
     }
 
@@ -213,7 +213,7 @@ contract ZkeMigrator is ReentrancyGuard, IZkeMigrator {
     }
 
     function _validateAction(bytes32 _action) private view {
-        require(pendingActions[_action], "ZkeMigrator: action not signalled");
+        require(pendingActions[_action], "WxtMigrator: action not signalled");
     }
 
     function _validateAuthorization(bytes32 _action) private view {
@@ -226,13 +226,13 @@ contract ZkeMigrator is ReentrancyGuard, IZkeMigrator {
         }
 
         if (count == 0) {
-            revert("ZkeMigrator: action not authorized");
+            revert("WxtMigrator: action not authorized");
         }
-        require(count >= minAuthorizations, "ZkeMigrator: insufficient authorization");
+        require(count >= minAuthorizations, "WxtMigrator: insufficient authorization");
     }
 
     function _clearAction(bytes32 _action, uint256 _nonce) private {
-        require(pendingActions[_action], "ZkeMigrator: invalid _action");
+        require(pendingActions[_action], "WxtMigrator: invalid _action");
         delete pendingActions[_action];
         emit ClearAction(_action, _nonce);
     }

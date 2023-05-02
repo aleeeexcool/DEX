@@ -5,9 +5,9 @@ pragma solidity 0.6.12;
 import "../libraries/token/IERC20.sol";
 import "../libraries/math/SafeMath.sol";
 
-import "./interfaces/IZkeIou.sol";
+import "./interfaces/IWxtIou.sol";
 
-contract ZkeIou is IERC20, IZkeIou {
+contract WxtIou is IERC20, IWxtIou {
     using SafeMath for uint256;
 
     mapping (address => uint256) private _balances;
@@ -27,7 +27,7 @@ contract ZkeIou is IERC20, IZkeIou {
     }
 
     function mint(address account, uint256 amount) public override returns (bool) {
-        require(msg.sender == minter, "ZkeIou: forbidden");
+        require(msg.sender == minter, "WxtIou: forbidden");
         _mint(account, amount);
         return true;
     }
@@ -36,28 +36,28 @@ contract ZkeIou is IERC20, IZkeIou {
         return _balances[account];
     }
 
-    // empty implementation, ZkeIou tokens are non-transferrable
+    // empty implementation, WxtIou tokens are non-transferrable
     function transfer(address /* recipient */, uint256 /* amount */) public override returns (bool) {
-        revert("ZkeIou: non-transferrable");
+        revert("WxtIou: non-transferrable");
     }
 
-    // empty implementation, ZkeIou tokens are non-transferrable
+    // empty implementation, WxtIou tokens are non-transferrable
     function allowance(address /* owner */, address /* spender */) public view virtual override returns (uint256) {
         return 0;
     }
 
-    // empty implementation, ZkeIou tokens are non-transferrable
+    // empty implementation, WxtIou tokens are non-transferrable
     function approve(address /* spender */, uint256 /* amount */) public virtual override returns (bool) {
-        revert("ZkeIou: non-transferrable");
+        revert("WxtIou: non-transferrable");
     }
 
-    // empty implementation, ZkeIou tokens are non-transferrable
+    // empty implementation, WxtIou tokens are non-transferrable
     function transferFrom(address /* sender */, address /* recipient */, uint256 /* amount */) public virtual override returns (bool) {
-        revert("ZkeIou: non-transferrable");
+        revert("WxtIou: non-transferrable");
     }
 
     function _mint(address account, uint256 amount) internal virtual {
-        require(account != address(0), "ZkeIou: mint to the zero address");
+        require(account != address(0), "WxtIou: mint to the zero address");
 
         totalSupply = totalSupply.add(amount);
         _balances[account] = _balances[account].add(amount);
