@@ -79,6 +79,20 @@ describe("WeeklyVesting", () => {
         // // });
     });
 
+    it("owner should withdraw usdc", async () => {
+        await weeklyVesting.withdrawTokens(zke.address, parseEther("100"))
+        await usdc.approve(weeklyVesting.address, DEFAULT_USDC_BALANCE);
+        await weeklyVesting.buyTokens(parseEther("10"))
+        await weeklyVesting.withdrawTokens(usdc.address, 1000000)
+    });
+
+    // it.only("not owner shouldn`t withdraw usdc", async () => {
+    //     await weeklyVesting.connect(user1).withdrawTokens(zke.address, parseEther("100"))
+    //     // await usdc.approve(weeklyVesting.address, DEFAULT_USDC_BALANCE);
+    //     // await weeklyVesting.buyTokens(parseEther("10"))
+    //     // await weeklyVesting.withdrawTokens(usdc.address, 1000000)
+    // });
+
     it("should not allow user to claim tokens before vesting starts", async () => {
         const user1WeeklyVesting = weeklyVesting.connect(user1);
         await expect(user1WeeklyVesting.claimTokens()).to.be.revertedWith(
