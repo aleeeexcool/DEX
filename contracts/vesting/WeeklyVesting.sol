@@ -7,39 +7,39 @@ import "../libraries/access/access_0_8_0/Ownable_0_8_0.sol";
 contract WeeklyVesting is Ownable_0_8_0 {
     uint256 public vestingWeeks;
     uint256 public tokenPrice;
-    uint256 public maxZkeVesting;
+    uint256 public maxWxtVesting;
     uint256 public vestingStart;
-    IERC20 public zke;
+    IERC20 public wxt;
     IERC20 public usdc;
 
-    uint256 public totalZkePurchased;
-    uint256 private constant ZKE_DECIMALS = 18;
+    uint256 public totalWxtPurchased;
+    uint256 private constant WXT_DECIMALS = 18;
 
     struct Participant {
-        uint256 zkePurchased;
-        uint256 zkeClaimed;
+        uint256 wxtPurchased;
+        uint256 wxtClaimed;
         uint256 lastClaimed;
     }
 
     mapping(address => Participant) public participants;
     mapping(address => bool) public pausedClaiming;
 
-    event ZkePurchased(address indexed buyer, uint256 amount);
-    event ZkeClaimed(address indexed claimer, uint256 amount);
+    event WxtPurchased(address indexed buyer, uint256 amount);
+    event WxtClaimed(address indexed claimer, uint256 amount);
 
     constructor(
-        IERC20 _zke,
+        IERC20 _wxt,
         IERC20 _usdc,
         uint256 _vestingWeeks,
         uint256 _tokenPrice,
-        uint256 _maxZkeVesting,
+        uint256 _maxWxtVesting,
         uint256 _vestingStart
     ) {
-        zke = _zke;
+        wxt = _wxt;
         usdc = _usdc;
         vestingWeeks = _vestingWeeks;
         tokenPrice = _tokenPrice;
-        maxZkeVesting = _maxZkeVesting;
+        maxWxtVesting = _maxWxtVesting;
         vestingStart = _vestingStart;
     }
 
@@ -60,9 +60,9 @@ contract WeeklyVesting is Ownable_0_8_0 {
         tokenPrice = _tokenPrice;
     }
 
-    function setMaxZkeVesting(uint256 _maxZkeVesting) external {
+    function setMaxWxtVesting(uint256 _maxWxtVesting) external {
         _checkOwner();
-        maxZkeVesting = _maxZkeVesting;
+        maxWxtVesting = _maxWxtVesting;
     }
 
     function buyTokens(uint256 tokenAmount) external {
@@ -71,22 +71,22 @@ contract WeeklyVesting is Ownable_0_8_0 {
             "Token purchase not allowed after vesting starts"
         );
         require(
-            totalZkePurchased + tokenAmount <= maxZkeVesting,
-            "Exceeds maximum ZKE vesting limit"
+            totalWxtPurchased + tokenAmount <= maxWxtVesting,
+            "Exceeds maximum WXT vesting limit"
         );
 
         uint256 requiredUsdc = (tokenAmount * tokenPrice) /
-            (10 ** ZKE_DECIMALS);
+            (10 ** WXT_DECIMALS);
 
         require(requiredUsdc > 0, "tokenAmount too small");
         usdc.transferFrom(msg.sender, address(this), requiredUsdc);
 
         Participant storage participant = participants[msg.sender];
-        participant.zkePurchased += tokenAmount;
+        participant.wxtPurchased += tokenAmount;
 
-        totalZkePurchased += tokenAmount;
+        totalWxtPurchased += tokenAmount;
 
-        emit ZkePurchased(msg.sender, tokenAmount);
+        emit WxtPurchased(msg.sender, tokenAmount);
     }
 
     function claimTokens() external {
@@ -98,11 +98,11 @@ contract WeeklyVesting is Ownable_0_8_0 {
         uint256 tokensAvailable = getAvailableTokens(msg.sender);
         require(tokensAvailable > 0, "No tokens available to claim");
 
-        participant.zkeClaimed += tokensAvailable;
+        participant.wxtClaimed += tokensAvailable;
         participant.lastClaimed = block.timestamp;
-        zke.transfer(msg.sender, tokensAvailable);
+        wxt.transfer(msg.sender, tokensAvailable);
 
-        emit ZkeClaimed(msg.sender, tokensAvailable);
+        emit WxtClaimed(msg.sender, tokensAvailable);
     }
 
     function getAvailableTokens(address user) public view returns (uint256) {
@@ -118,12 +118,12 @@ contract WeeklyVesting is Ownable_0_8_0 {
             return 0;
         }
 
-        uint256 tokensPerWeek = participant.zkePurchased / vestingWeeks;
+        uint256 tokensPerWeek = participant.wxtPurchased / vestingWeeks;
         uint256 tokensToClaim = tokensPerWeek * weeksPassed;
 
         return
-            (participant.zkeClaimed + tokensToClaim > participant.zkePurchased)
-                ? participant.zkePurchased - participant.zkeClaimed
+            (participant.wxtClaimed + tokensToClaim > participant.wxtPurchased)
+                ? participant.wxtPurchased - participant.wxtClaimed
                 : tokensToClaim;
     }
 
