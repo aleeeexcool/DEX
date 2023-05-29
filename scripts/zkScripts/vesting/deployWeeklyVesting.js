@@ -17,6 +17,12 @@ const deployer = new Deployer(hre, governor);
 
 async function deployContract(name, args, deployer, options) {
     try {
+        const argStr = args.map((i) => `"${i}"`).join(", ")
+        console.info(`Deploying...  ${name}(${argStr})`)
+        const artifact = await deployer.loadArtifact(name);
+        const contract = await deployer.deploy(artifact, [...args]);
+        console.info(`Completed: ${contract.address}\n`)
+        return contract
     } catch (error) {
         console.error(`${error.code}`);
         console.error(`${error.body}`);
@@ -48,7 +54,6 @@ const WeeklyVestingAbi = require("../../../artifacts-zk/contracts/vesting/Weekly
 
 async function main() {
     // const deployerWallet = new Wallet(privateKeyGovernor, provider)
-    
     // const zke = await deployContract("ZKE", [], deployer)
     // const usdcMock = await deployContract("UsdcMock", [], deployer)
     /*  
